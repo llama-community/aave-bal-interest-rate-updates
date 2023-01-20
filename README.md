@@ -36,7 +36,7 @@ The interest rate changes are as follows:
 ------------------------------------------
 | Slope1	  |   7.0      |   14.0  |
 ------------------------------------------
-| Slope2	  |   300      |   150    |
+| Slope2	  |   300      |   150   |
 ------------------------------------------
 ```
 
@@ -56,7 +56,7 @@ The function used to set the strategy comes from the `@aave-address-book` librar
   ) external;
 ```
 
-2. Sets the new reserve factor for the liquidity pool:
+2. Sets the new borrow cap for the liquidity pool:
 
 The function used to set the borrow cap comes from the `@aave-address-book` library
 
