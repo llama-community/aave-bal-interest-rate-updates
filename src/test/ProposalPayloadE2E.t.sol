@@ -308,7 +308,7 @@ contract ProposalPayloadE2ETest is ProtocolV3TestBase {
     function testUtilizationAtZeroPercentPolygonV2() public {
         vm.selectFork(polygonFork);
         (uint256 liqRate, uint256 stableRate, uint256 varRate) = strategyPolygon.calculateInterestRates(
-            BAL,
+            BAL_POLYGON,
             100 * 1e18,
             0,
             0,
@@ -325,7 +325,7 @@ contract ProposalPayloadE2ETest is ProtocolV3TestBase {
     function testUtilizationAtOneHundredPercentPolygon() public {
         vm.selectFork(polygonFork);
         (uint256 liqRate, uint256 stableRate, uint256 varRate) = strategyPolygon.calculateInterestRates(
-            BAL,
+            BAL_POLYGON,
             0,
             0,
             100 * 1e18,
@@ -342,7 +342,7 @@ contract ProposalPayloadE2ETest is ProtocolV3TestBase {
     function testUtilizationAtUOptimalPolygon() public {
         vm.selectFork(polygonFork);
         (uint256 liqRate, uint256 stableRate, uint256 varRate) = strategyPolygon.calculateInterestRates(
-            BAL,
+            BAL_POLYGON,
             20 * 1e18,
             0,
             80 * 1e18,
