@@ -24,6 +24,11 @@ deploy-proposal :; forge script script/DeployMainnetProposal.s.sol:DeployProposa
 clean    :; forge clean
 lint     :; npx prettier --write */*.sol */*/*.sol
 
+# Diff v3 files
+git-diff :
+	@mkdir -p diffs
+	@printf '%s\n%s\n%s\n' "\`\`\`diff" "$$(git diff --no-index --diff-algorithm=patience --ignore-space-at-eol ${before} ${after})" "\`\`\`" > diffs/${out}.md
+
 # Defaults to -v if no V=<{1,2,3,4,5} specified
 define compute_test_verbosity
 $(strip \
