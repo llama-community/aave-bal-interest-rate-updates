@@ -6,20 +6,19 @@ import "@forge-std/Test.sol";
 import "@forge-std/console.sol";
 
 // contract dependencies
-import {GovHelpers} from "@aave-helpers/GovHelpers.sol";
+import {TestWithExecutor} from "@aave-helpers/GovHelpers.sol";
 import {BridgeExecutorHelpers} from "@aave-helpers/BridgeExecutorHelpers.sol";
+import {AaveGovernanceV2} from "@aave-address-book/AaveGovernanceV2.sol";
 import {AaveV3Polygon} from "@aave-address-book/AaveV3Polygon.sol";
 import {ProposalPayload} from "../ProposalPayload.sol";
 import {ProposalPayloadPolygon} from "../ProposalPayloadPolygon.sol";
-import {DeployProposals} from "../../script/DeployProposals.s.sol";
 import {ProtocolV3TestBase, InterestStrategyValues, ReserveConfig, ReserveTokens, IERC20} from "@aave-helpers/ProtocolV3TestBase.sol";
-import {IStateReceiver} from "@governance-crosschain-bridges/dependencies/polygon/fxportal/FxChild.sol";
 import {IDefaultInterestRateStrategy} from "@aave-v3-core/interfaces/IDefaultInterestRateStrategy.sol";
 import {AaveV2Helpers, InterestStrategyValues as InterestStrategyValuesV2, IReserveInterestRateStrategy as IReserveInterestRateStrategyV2, ReserveConfig as ReserveConfigV2} from "./utils/AaveV2Helpers.sol";
 import {AaveAddressBookV2} from "./utils/AaveAddressBookV2.sol";
 import {DataTypes} from "@aave-v3-core/protocol/libraries/types/DataTypes.sol";
 
-contract ProposalPayloadE2ETest is ProtocolV3TestBase {
+contract ProposalPayloadE2ETest is ProtocolV3TestBase, TestWithExecutor {
     uint256 internal constant RAY = 1e27;
     uint256 public mainnetFork;
     uint256 public polygonFork;
@@ -39,12 +38,6 @@ contract ProposalPayloadE2ETest is ProtocolV3TestBase {
     address public NEW_INTEREST_RATE_STRATEGY_ETHEREUM;
     address public NEW_INTEREST_RATE_STRATEGY_POLYGON;
     address public NEW_INTEREST_RATE_STRATEGY_POLYGON_V3;
-
-    // Util Addresses
-    address public constant CROSSCHAIN_FORWARDER_POLYGON = 0x158a6bC04F0828318821baE797f50B0A1299d45b;
-    address public constant BRIDGE_ADMIN = 0x0000000000000000000000000000000000001001;
-    address public constant FX_CHILD_ADDRESS = 0x8397259c983751DAf40400790063935a11afa28a;
-    address public constant POLYGON_BRIDGE_EXECUTOR = 0xdc9A35B16DB4e126cFeDC41322b3a36454B1F772;
 
     // Underlying
     address public constant BAL = 0xba100000625a3754423978a60c9317c58a424e3D;
@@ -75,44 +68,13 @@ contract ProposalPayloadE2ETest is ProtocolV3TestBase {
         proposalPayload = new ProposalPayload();
         NEW_INTEREST_RATE_STRATEGY_ETHEREUM = proposalPayload.INTEREST_RATE_STRATEGY();
         strategy = IReserveInterestRateStrategyV2(NEW_INTEREST_RATE_STRATEGY_ETHEREUM);
-
-        // Create Proposal
-        vm.prank(GovHelpers.AAVE_WHALE);
-        proposalId = DeployProposals._deployMainnetProposal(
-            address(proposalPayload),
-            address(proposalPayloadPolygon),
-            0x344d3181f08b3186228b93bac0005a3a961238164b8b06cbb5f0428a9180b8a7 // TODO: Replace with actual IPFS Hash
-        );
-    }
-
-    // Utility to transform memory to calldata so array range access is available
-    function _cutBytes(bytes calldata input) public pure returns (bytes calldata) {
-        return input[64:];
-    }
-
-    function _modifyStrategy() internal {
-        // Pass vote and execute proposal
-        vm.selectFork(mainnetFork);
-        vm.recordLogs();
-        GovHelpers.passVoteAndExecute(vm, proposalId);
-
-        Vm.Log[] memory entries = vm.getRecordedLogs();
-        assertEq(keccak256("StateSynced(uint256,address,bytes)"), entries[5].topics[0]);
-        assertEq(address(uint160(uint256(entries[5].topics[2]))), FX_CHILD_ADDRESS);
-
-        // Mock the receive on L2 with the data emitted on StateSynced
-        vm.selectFork(polygonFork);
-        vm.startPrank(BRIDGE_ADMIN);
-        IStateReceiver(FX_CHILD_ADDRESS).onStateReceive(uint256(entries[5].topics[1]), this._cutBytes(entries[5].data));
-        vm.stopPrank();
-
-        // Forward time & execute proposal
-        BridgeExecutorHelpers.waitAndExecuteLatest(vm, POLYGON_BRIDGE_EXECUTOR);
     }
 
     function testExecuteValidateEthereum() public {
-        _modifyStrategy();
         vm.selectFork(mainnetFork);
+
+        _selectPayloadExecutor(AaveGovernanceV2.SHORT_EXECUTOR);
+        _executePayload(address(proposalPayload));
 
         // Post-execution assertations
         ReserveConfigV2[] memory allConfigsEthereum = AaveV2Helpers._getReservesConfigs(false, ETHEREUM);
@@ -155,10 +117,10 @@ contract ProposalPayloadE2ETest is ProtocolV3TestBase {
     }
 
     function testExecuteValidatePolygonV2() public {
-        _modifyStrategy();
-
-        // Post-execution assertations
         vm.selectFork(polygonFork);
+
+        _selectPayloadExecutor(AaveGovernanceV2.POLYGON_BRIDGE_EXECUTOR);
+        _executePayload(address(proposalPayloadPolygon));
 
         ReserveConfigV2[] memory allConfigsPolygon = AaveV2Helpers._getReservesConfigs(false, POLYGON);
 
@@ -200,10 +162,11 @@ contract ProposalPayloadE2ETest is ProtocolV3TestBase {
     }
 
     function testExecuteValidatePolygonV3() public {
-        _modifyStrategy();
-
-        // Post-execution assertations
         vm.selectFork(polygonFork);
+        createConfigurationSnapshot("pre-AaveV3Polygon-interestRateUpdate", AaveV3Polygon.POOL);
+
+        _selectPayloadExecutor(AaveGovernanceV2.POLYGON_BRIDGE_EXECUTOR);
+        _executePayload(address(proposalPayloadPolygon));
 
         ReserveConfig[] memory allConfigsAfterV3Polygon = _getReservesConfigs(AaveV3Polygon.POOL);
 
@@ -251,6 +214,8 @@ contract ProposalPayloadE2ETest is ProtocolV3TestBase {
                 variableRateSlope2: 150 * (AaveV2Helpers.RAY / 100)
             })
         );
+
+        createConfigurationSnapshot("post-AaveV3Polygon-interestRateUpdate", AaveV3Polygon.POOL);
     }
 
     // Interest Strategy Ethereum

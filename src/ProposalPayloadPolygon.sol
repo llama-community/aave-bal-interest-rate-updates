@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.17;
 
-import {AaveMisc} from "@aave-address-book/AaveMisc.sol";
 import {AaveV2Polygon} from "@aave-address-book/AaveV2Polygon.sol";
 import {AaveV3Polygon} from "@aave-address-book/AaveV3Polygon.sol";
 
 /**
  * @title BAL Interest Rate Curve Upgrade
  * @author Llama
- * @notice Amend BAL interest rate parameters on the Aave Polygon v2 and Aave Polygon v3 liquidity pools.
+ * @notice Amend BAL interest rate parameters on the Aave Polygon v2 and Aave Polygon v3 liquidity pools. It also changes the borrow cap on the Polygon v3 pool.
  * Governance Forum Post: https://governance.aave.com/t/arfc-bal-interest-rate-curve-upgrade/10484/10
  * Snapshot: https://snapshot.org/#/aave.eth/proposal/0xceb72907ec281318c0271039c6cbde07d057e368aff8d8b75ad90389f64bf83c
  */
