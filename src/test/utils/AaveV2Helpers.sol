@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 
 import "@forge-std/Vm.sol";
 import "@forge-std/console.sol";
-import {AaveAddressBookV2} from "@aave-address-book/AaveAddressBook.sol";
+import {AaveAddressBookV2} from "./AaveAddressBookV2.sol";
 import {TokenData} from "@aave-address-book/AaveV2.sol";
 import "@openzeppelin/token/ERC20/IERC20.sol";
 
@@ -123,6 +123,22 @@ interface IReserveInterestRateStrategy {
     function variableRateSlope1() external view returns (uint256);
 
     function variableRateSlope2() external view returns (uint256);
+
+    function calculateInterestRates(
+        address reserve,
+        uint256 availableLiquidity,
+        uint256 totalStableDebt,
+        uint256 totalVariableDebt,
+        uint256 averageStableBorrowRate,
+        uint256 reserveFactor
+    )
+        external
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256
+        );
 }
 
 interface IProtocolDataProvider {
@@ -209,7 +225,7 @@ library AaveV2Helpers {
         view
         returns (ReserveConfig[] memory)
     {
-        AaveAddressBookV2.Market memory market = AaveAddressBookV2.getMarket(AaveAddressBookV2.AaveV2Ethereum);
+        AaveAddressBookV2.Market memory market = AaveAddressBookV2.getMarket(marketName);
         LocalVars memory vars;
         vars.reserves = market.AAVE_PROTOCOL_DATA_PROVIDER.getAllReservesTokens();
         vars.configs = new ReserveConfig[](vars.reserves.length);
